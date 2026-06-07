@@ -6,7 +6,7 @@
 
 [English](README.md) · **Русский**
 
-![Панель Agent Reminder](docs/screen.png)
+<img src="docs/screen.png" alt="Панель Agent Reminder" width="50%" />
 
 [**Скачать последний релиз →**](https://github.com/positron48/agent-reminder/releases)
 

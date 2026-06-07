@@ -6,7 +6,7 @@ A tiny menu bar / tray app that tracks rate-limit countdowns for **Claude**, **C
 
 **English** · [Русский](README.ru.md)
 
-![Agent Reminder panel](docs/screen.png)
+<img src="docs/screen.png" alt="Agent Reminder panel" width="50%" />
 
 [**Download latest release →**](https://github.com/positron48/agent-reminder/releases)
 
