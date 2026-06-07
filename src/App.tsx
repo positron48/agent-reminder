@@ -18,7 +18,6 @@ function App() {
     addTimer,
     removeTimer,
     completeTimer,
-    restartTimer,
     clearCompleted,
     toggleSound,
   } = useTimers();
@@ -33,24 +32,27 @@ function App() {
 
   if (loading) {
     return (
-      <div className="panel">
-        <div className="loading">Загрузка…</div>
+      <div className="shell">
+        <div className="panel">
+          <div className="loading">Loading…</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="panel">
+    <div className="shell">
+      <div className="panel">
       <div className="panel-header">
         <div>
           <h1>Agent Reminder</h1>
-          <p className="panel-subtitle">Лимиты ИИ-агентов</p>
+          <p className="panel-subtitle">AI agent rate limits</p>
         </div>
         <button
           type="button"
           className={`sound-toggle ${settings.soundEnabled ? "on" : "off"}`}
           onClick={() => toggleSound()}
-          title={settings.soundEnabled ? "Звук включён" : "Звук выключен"}
+          title={settings.soundEnabled ? "Sound on" : "Sound off"}
         >
           {settings.soundEnabled ? "🔔" : "🔕"}
         </button>
@@ -70,7 +72,7 @@ function App() {
             className="btn-primary full-width"
             onClick={() => openForm()}
           >
-            + Новый таймер
+            + New timer
           </button>
         </>
       ) : (
@@ -88,11 +90,11 @@ function App() {
         activeTimers={activeTimers}
         completedTimers={completedTimers}
         now={now}
-        onRestart={restartTimer}
         onComplete={completeTimer}
         onRemove={removeTimer}
         onClearCompleted={clearCompleted}
       />
+      </div>
     </div>
   );
 }

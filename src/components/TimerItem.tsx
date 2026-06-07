@@ -4,7 +4,6 @@ import { agentBadgeClass, formatCountdown } from "../types";
 interface Props {
   timer: Timer;
   now: number;
-  onRestart: (id: string) => void;
   onComplete: (id: string) => void;
   onRemove: (id: string) => void;
 }
@@ -12,7 +11,6 @@ interface Props {
 export function TimerItem({
   timer,
   now,
-  onRestart,
   onComplete,
   onRemove,
 }: Props) {
@@ -28,7 +26,7 @@ export function TimerItem({
             {timer.agentLabel}
           </span>
           <span className="timer-countdown">
-            {isCompleted ? "Готов" : formatCountdown(remaining)}
+            {isCompleted ? "Ready" : formatCountdown(remaining)}
           </span>
         </div>
         {timer.comment && <p className="timer-comment">{timer.comment}</p>}
@@ -38,7 +36,7 @@ export function TimerItem({
           <button
             type="button"
             className="icon-btn"
-            title="Завершить сейчас"
+            title="Mark ready now"
             onClick={() => onComplete(timer.id)}
           >
             ✓
@@ -46,16 +44,8 @@ export function TimerItem({
         )}
         <button
           type="button"
-          className="icon-btn"
-          title="Перезапустить"
-          onClick={() => onRestart(timer.id)}
-        >
-          ↻
-        </button>
-        <button
-          type="button"
           className="icon-btn danger"
-          title="Удалить"
+          title="Remove"
           onClick={() => onRemove(timer.id)}
         >
           ×

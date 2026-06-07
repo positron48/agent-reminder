@@ -31,6 +31,7 @@ export interface AppSettings {
 export interface AddTimerPayload {
   agentType: string;
   agentLabel?: string;
+  days: number;
   hours: number;
   minutes: number;
   comment?: string;
@@ -45,9 +46,13 @@ export const AGENT_PRESETS: { type: AgentType; label: string }[] = [
 
 export function formatCountdown(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
-  const hours = Math.floor(total / 3600);
+  const days = Math.floor(total / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
   const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;
+  if (days > 0) {
+    return `${days}d ${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
   if (hours > 0) {
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }

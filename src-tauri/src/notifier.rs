@@ -30,11 +30,11 @@ pub fn play_ding(app: &AppHandle) {
 }
 
 pub fn notify_timer_complete(app: &AppHandle, timer: &Timer) {
-    let title = format!("{} доступен", timer.agent_label);
+    let title = format!("{} is available", timer.agent_label);
     let body = timer
         .comment
         .clone()
-        .unwrap_or_else(|| "Лимит агента сброшен".to_string());
+        .unwrap_or_else(|| "Agent limit has reset".to_string());
 
     let _ = app
         .notification()

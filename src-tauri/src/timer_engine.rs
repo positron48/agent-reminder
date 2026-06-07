@@ -30,6 +30,11 @@ fn tick(app: &AppHandle, state: &AppState) {
     let now = Utc::now().timestamp_millis();
     let mut changed = false;
     let mut completed: Vec<(String, String)> = Vec::new();
+    let summary_changed;
+    let previous_summary = {
+        let timers = state.timers.lock().unwrap();
+        compute_tray_summary(&timers, now)
+    };
 
     {
         let mut timers = state.timers.lock().unwrap();
@@ -45,6 +50,9 @@ fn tick(app: &AppHandle, state: &AppState) {
         if changed {
             let _ = crate::store::save_timers(app, &timers);
         }
+
+        let next_summary = compute_tray_summary(&timers, now);
+        summary_changed = tray_summary_needs_refresh(&previous_summary, &next_summary);
     }
 
     for (id, label) in completed {
@@ -69,8 +77,30 @@ fn tick(app: &AppHandle, state: &AppState) {
         }
     }
 
-    refresh_tray(app, state);
+    if summary_changed || changed {
+        refresh_tray(app, state);
+    }
+
     if changed {
         let _ = app.emit("timers-updated", ());
+    }
+}
+
+fn tray_summary_needs_refresh(
+    previous: &crate::models::TraySummary,
+    next: &crate::models::TraySummary,
+) -> bool {
+    if previous.status != next.status
+        || previous.available_count != next.available_count
+        || previous.waiting_count != next.waiting_count
+        || previous.nearest_label != next.nearest_label
+    {
+        return true;
+    }
+
+    match (previous.nearest_ms, next.nearest_ms) {
+        (None, None) => false,
+        (Some(prev), Some(next)) => prev / 1000 != next / 1000,
+        _ => true,
     }
 }

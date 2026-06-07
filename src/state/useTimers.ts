@@ -78,11 +78,6 @@ export function useTimers() {
     await refresh();
   };
 
-  const restartTimer = async (id: string) => {
-    await invoke("restart_timer", { id });
-    await refresh();
-  };
-
   const clearCompleted = async () => {
     await invoke("clear_completed");
     await refresh();
@@ -107,7 +102,6 @@ export function useTimers() {
     addTimer,
     removeTimer,
     completeTimer,
-    restartTimer,
     clearCompleted,
     toggleSound,
     refresh,

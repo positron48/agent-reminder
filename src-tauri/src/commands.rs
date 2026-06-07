@@ -1,5 +1,5 @@
 use chrono::Utc;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
 use crate::{
@@ -51,8 +51,8 @@ pub fn add_timer(
     state: State<'_, AppState>,
     payload: AddTimerPayload,
 ) -> Result<Timer, String> {
-    if payload.hours == 0 && payload.minutes == 0 {
-        return Err("Укажите длительность больше 0".into());
+    if payload.days == 0 && payload.hours == 0 && payload.minutes == 0 {
+        return Err("Duration must be greater than 0".into());
     }
 
     let agent_type = AgentType::from_str(&payload.agent_type);
@@ -61,7 +61,10 @@ pub fn add_timer(
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| agent_type.default_label().to_string());
 
-    let duration_ms = ((payload.hours as u64 * 60 + payload.minutes as u64) * 60 * 1000) as u64;
+    let duration_ms = ((payload.days as u64 * 24 * 60 * 60)
+        + (payload.hours as u64 * 60 * 60)
+        + (payload.minutes as u64 * 60))
+        * 1000;
     let started = now_ms();
     let timer = Timer {
         id: Uuid::new_v4().to_string(),
@@ -120,7 +123,7 @@ pub fn restart_timer(app: AppHandle, state: State<'_, AppState>, id: String) -> 
         let timer = timers
             .iter_mut()
             .find(|t| t.id == id)
-            .ok_or_else(|| "Таймер не найден".to_string())?;
+            .ok_or_else(|| "Timer not found".to_string())?;
 
         let started = now_ms();
         timer.started_at = started;
@@ -150,8 +153,6 @@ pub fn clear_completed(app: AppHandle, state: State<'_, AppState>) -> Result<(),
 
 #[tauri::command]
 pub fn hide_panel(app: AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("main") {
-        window.hide().map_err(|e| e.to_string())?;
-    }
+    crate::tray::hide_panel(&app);
     Ok(())
 }

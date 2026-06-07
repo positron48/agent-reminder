@@ -55,6 +55,8 @@ pub struct Timer {
 pub struct AddTimerPayload {
     pub agent_type: String,
     pub agent_label: Option<String>,
+    #[serde(default)]
+    pub days: u32,
     pub hours: u32,
     pub minutes: u32,
     pub comment: Option<String>,
@@ -70,7 +72,7 @@ pub struct TraySummary {
     pub status: TrayStatusKind,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum TrayStatusKind {
     Idle,

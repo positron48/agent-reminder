@@ -7,6 +7,7 @@ interface Props {
   onSubmit: (payload: {
     agentType: AgentType;
     agentLabel?: string;
+    days: number;
     hours: number;
     minutes: number;
     comment?: string;
@@ -17,6 +18,7 @@ interface Props {
 export function AddTimerForm({ preset, onSubmit, onCancel }: Props) {
   const [agentType, setAgentType] = useState<AgentType>(preset ?? "claude");
   const [agentLabel, setAgentLabel] = useState("");
+  const [days, setDays] = useState(0);
   const [hours, setHours] = useState(1);
   const [minutes, setMinutes] = useState(0);
   const [comment, setComment] = useState("");
@@ -35,6 +37,7 @@ export function AddTimerForm({ preset, onSubmit, onCancel }: Props) {
       await onSubmit({
         agentType,
         agentLabel: agentType === "custom" ? agentLabel : undefined,
+        days,
         hours,
         minutes,
         comment: comment.trim() || undefined,
@@ -50,7 +53,7 @@ export function AddTimerForm({ preset, onSubmit, onCancel }: Props) {
   return (
     <form className="add-form" onSubmit={handleSubmit}>
       <div className="form-row">
-        <label htmlFor="agent-type">Агент</label>
+        <label htmlFor="agent-type">Agent</label>
         <select
           id="agent-type"
           value={agentType}
@@ -66,12 +69,12 @@ export function AddTimerForm({ preset, onSubmit, onCancel }: Props) {
 
       {agentType === "custom" && (
         <div className="form-row">
-          <label htmlFor="agent-label">Название</label>
+          <label htmlFor="agent-label">Name</label>
           <input
             id="agent-label"
             value={agentLabel}
             onChange={(e) => setAgentLabel(e.target.value)}
-            placeholder="Например, Gemini"
+            placeholder="e.g. Gemini"
             required
           />
         </div>
@@ -79,7 +82,18 @@ export function AddTimerForm({ preset, onSubmit, onCancel }: Props) {
 
       <div className="form-row duration-row">
         <div>
-          <label htmlFor="hours">Часы</label>
+          <label htmlFor="days">Days</label>
+          <input
+            id="days"
+            type="number"
+            min={0}
+            max={365}
+            value={days}
+            onChange={(e) => setDays(Number(e.target.value))}
+          />
+        </div>
+        <div>
+          <label htmlFor="hours">Hours</label>
           <input
             id="hours"
             type="number"
@@ -90,7 +104,7 @@ export function AddTimerForm({ preset, onSubmit, onCancel }: Props) {
           />
         </div>
         <div>
-          <label htmlFor="minutes">Минуты</label>
+          <label htmlFor="minutes">Minutes</label>
           <input
             id="minutes"
             type="number"
@@ -103,21 +117,21 @@ export function AddTimerForm({ preset, onSubmit, onCancel }: Props) {
       </div>
 
       <div className="form-row">
-        <label htmlFor="comment">Комментарий</label>
+        <label htmlFor="comment">Comment</label>
         <input
           id="comment"
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          placeholder="Опционально"
+          placeholder="Optional"
         />
       </div>
 
       <div className="form-actions">
         <button type="button" className="btn-secondary" onClick={onCancel}>
-          Отмена
+          Cancel
         </button>
         <button type="submit" className="btn-primary" disabled={submitting}>
-          Добавить
+          Add
         </button>
       </div>
     </form>

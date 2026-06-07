@@ -6,7 +6,6 @@ interface Props {
   activeTimers: Timer[];
   completedTimers: Timer[];
   now: number;
-  onRestart: (id: string) => void;
   onComplete: (id: string) => void;
   onRemove: (id: string) => void;
   onClearCompleted: () => void;
@@ -16,7 +15,6 @@ export function TimerList({
   activeTimers,
   completedTimers,
   now,
-  onRestart,
   onComplete,
   onRemove,
   onClearCompleted,
@@ -24,8 +22,8 @@ export function TimerList({
   if (activeTimers.length === 0 && completedTimers.length === 0) {
     return (
       <div className="empty-state">
-        <p>Нет активных таймеров</p>
-        <span>Добавьте лимит агента, чтобы отслеживать сброс</span>
+        <p>No active timers</p>
+        <span>Add an agent limit to track when it resets</span>
       </div>
     );
   }
@@ -34,13 +32,12 @@ export function TimerList({
     <div className="timer-list">
       {activeTimers.length > 0 && (
         <section>
-          <h2 className="section-title">Ожидают</h2>
+          <h2 className="section-title">Waiting</h2>
           {activeTimers.map((timer) => (
             <TimerItem
               key={timer.id}
               timer={timer}
               now={now}
-              onRestart={onRestart}
               onComplete={onComplete}
               onRemove={onRemove}
             />
@@ -51,13 +48,13 @@ export function TimerList({
       {completedTimers.length > 0 && (
         <section>
           <div className="section-header">
-            <h2 className="section-title">Свободны</h2>
+            <h2 className="section-title">Available</h2>
             <button
               type="button"
               className="link-btn"
               onClick={onClearCompleted}
             >
-              Очистить
+              Clear
             </button>
           </div>
           {completedTimers.map((timer) => (
@@ -65,7 +62,6 @@ export function TimerList({
               key={timer.id}
               timer={timer}
               now={now}
-              onRestart={onRestart}
               onComplete={onComplete}
               onRemove={onRemove}
             />
@@ -86,9 +82,9 @@ export function NextAvailable({ nearest, now, availableCount }: NextProps) {
   if (!nearest && availableCount === 0) {
     return (
       <header className="hero idle">
-        <span className="hero-label">Статус</span>
-        <strong className="hero-value">Все агенты свободны</strong>
-        <span className="hero-sub">Добавьте таймер при достижении лимита</span>
+        <span className="hero-label">Status</span>
+        <strong className="hero-value">All agents available</strong>
+        <span className="hero-sub">Add a timer when you hit a limit</span>
       </header>
     );
   }
@@ -96,9 +92,11 @@ export function NextAvailable({ nearest, now, availableCount }: NextProps) {
   if (!nearest) {
     return (
       <header className="hero ready">
-        <span className="hero-label">Доступно</span>
-        <strong className="hero-value">{availableCount} агент(ов)</strong>
-        <span className="hero-sub">Можно продолжать работу</span>
+        <span className="hero-label">Available</span>
+        <strong className="hero-value">
+          {availableCount} agent{availableCount === 1 ? "" : "s"}
+        </strong>
+        <span className="hero-sub">Ready to go</span>
       </header>
     );
   }
@@ -107,7 +105,7 @@ export function NextAvailable({ nearest, now, availableCount }: NextProps) {
 
   return (
     <header className="hero waiting">
-      <span className="hero-label">Ближайший свободный</span>
+      <span className="hero-label">Next available</span>
       <strong className="hero-value">{nearest.agentLabel}</strong>
       <span className="hero-countdown">{formatCountdown(remaining)}</span>
       {nearest.comment && (
