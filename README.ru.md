@@ -12,6 +12,8 @@
 
 macOS · Windows · Linux · Бесплатно, open source (MIT)
 
+> **macOS:** приложение ad-hoc подписано (без Apple Developer). Если macOS пишет, что приложение *повреждено*, после копирования из DMG выполни `xattr -cr "/Applications/Agent Reminder.app"` или первый раз открой через правый клик → **Открыть**.
+
 ---
 
 ## Зачем это нужно
