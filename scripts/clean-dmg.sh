@@ -1,10 +1,22 @@
 #!/usr/bin/env bash
-# Post-process macOS DMGs: remove visible service files from the final image.
-# Finder layout is applied during `bundle_dmg.sh` at build time; on CI we only
-# strip .VolumeIcon.icns because AppleScript/Finder automation is unavailable.
+# Post-process macOS DMGs: apply Finder layout (background, icon positions) and
+# strip service files. Re-applies layout when bundle_dmg AppleScript failed or an
+# older clean-dmg run left a broken .DS_Store without background metadata.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
+TEMPLATE="$ROOT/scripts/create-dmg-template.applescript"
+BACKGROUND="$ROOT/src-tauri/dmg-assets/background.png"
+
+# Must match src-tauri/tauri.conf.json bundle.macOS.dmg
+WINW=660
+WINH=400
+WINX=10
+WINY=60
+APP_X=170
+APP_Y=100
+APPS_X=470
+APPS_Y=100
 
 find_dmgs() {
   find "$ROOT/src-tauri/target" -path '*/release/bundle/dmg/*.dmg' ! -name 'rw.*' 2>/dev/null
@@ -19,8 +31,50 @@ collect_dmgs() {
   find_dmgs
 }
 
-should_skip_finder_layout() {
-  [ -n "${SKIP_FINDER_LAYOUT:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ] || [ -n "${CI:-}" ]
+ds_store_has_background() {
+  local mount="$1"
+  [ -f "$mount/.DS_Store" ] && strings "$mount/.DS_Store" 2>/dev/null | grep -q 'icvpblob'
+}
+
+apply_finder_layout() {
+  local vol="$1"
+  local app="$2"
+
+  if [ ! -f "$TEMPLATE" ]; then
+    echo "Missing AppleScript template: $TEMPLATE" >&2
+    return 1
+  fi
+
+  local background_clause='set background picture of opts to file ".background:background.png"'
+  local reposition_clause='try
+				set position of item ".background" to {-400, -400}
+			end try'
+  local position_clause="set position of item \"$app\" to {$APP_X, $APP_Y}
+			"
+  local application_clause="set position of item \"Applications\" to {$APPS_X, $APPS_Y}
+			"
+
+  local applescript_file
+  applescript_file=$(mktemp -t createdmg.tmp.XXXXXXXXXX)
+  cat "$TEMPLATE" \
+    | sed -e "s/WINX/$WINX/g" -e "s/WINY/$WINY/g" -e "s/WINW/$WINW/g" \
+          -e "s/WINH/$WINH/g" -e "s/ICON_SIZE/128/g" -e "s/TEXT_SIZE/16/g" \
+          -e "s/BACKGROUND_CLAUSE/$background_clause/g" \
+    | perl -pe "s/REPOSITION_HIDDEN_FILES_CLAUSE/$reposition_clause/g" \
+    | perl -pe "s/POSITION_CLAUSE/$position_clause/g" \
+    | perl -pe "s/APPLICATION_CLAUSE/$application_clause/g" \
+    | perl -pe "s/HIDING_CLAUSE//g" \
+    | perl -pe "s/QL_CLAUSE//g" \
+    > "$applescript_file"
+
+  sleep 2
+  if /usr/bin/osascript "$applescript_file" "$vol"; then
+    rm -f "$applescript_file"
+    return 0
+  fi
+
+  rm -f "$applescript_file"
+  return 1
 }
 
 DMGS=()
@@ -36,54 +90,14 @@ if [ ${#DMGS[@]} -eq 0 ]; then
   echo "" >&2
   echo "Then run without arguments:" >&2
   echo "  bash scripts/clean-dmg.sh" >&2
-  echo "" >&2
-  echo "Or pass an explicit path (quote paths with spaces):" >&2
-  echo '  bash scripts/clean-dmg.sh "src-tauri/target/release/bundle/dmg/Agent Reminder_0.1.4_aarch64.dmg"' >&2
   exit 1
 fi
 
-apply_finder_layout() {
-  local mount=$1
-  local vol=$2
-  local app=$3
-
-  open "$mount" >/dev/null 2>&1 || true
-  sleep 2
-
-  osascript <<EOF
-tell application "Finder"
-  tell disk "$vol"
-    open
-    tell container window
-      set current view to icon view
-      set toolbar visible to false
-      set statusbar visible to false
-      set bounds to {200, 120, 860, 520}
-      set position of item "$app" to {170, 100}
-      set position of item "Applications" to {470, 100}
-      repeat with entry in items
-        if name of entry starts with "." then
-          set position of entry to {-5000, -5000}
-        end if
-      end repeat
-    end tell
-    close
-    open
-    delay 2
-    tell container window
-      set statusbar visible to false
-      set bounds to {200, 120, 860, 520}
-      repeat with entry in items
-        if name of entry starts with "." then
-          set position of entry to {-5000, -5000}
-        end if
-      end repeat
-    end tell
-    close
-  end tell
-end tell
-EOF
-}
+if [ ! -f "$BACKGROUND" ]; then
+  echo "Missing DMG background: $BACKGROUND" >&2
+  echo "Run: bash scripts/render-dmg-background.sh" >&2
+  exit 1
+fi
 
 for DMG in "${DMGS[@]}"; do
   if [ ! -f "$DMG" ]; then
@@ -96,13 +110,25 @@ for DMG in "${DMGS[@]}"; do
   RW="$WORK/rw.dmg"
 
   hdiutil convert "$DMG" -format UDRW -o "$RW" -quiet
-  MOUNT=$(hdiutil attach -readwrite -noverify -nobrowse "$RW" | grep -o '/Volumes/.*' | head -1)
-  VOL=$(basename "$MOUNT")
-  APP_PATH=$(find "$MOUNT" -maxdepth 1 -name '*.app' -print -quit)
-  APP=
-  if [ -n "$APP_PATH" ]; then
-    APP=$(basename "$APP_PATH")
+  MOUNT=$(hdiutil attach -readwrite -noverify -nobrowse "$RW" | grep -Eo '/Volumes/.*' | head -1)
+  if [ -z "$MOUNT" ] || [ ! -d "$MOUNT" ]; then
+    echo "Failed to mount $DMG for post-processing." >&2
+    rm -rf "$WORK"
+    continue
   fi
+
+  VOL=$(basename "$MOUNT")
+  APP=$(find "$MOUNT" -maxdepth 1 -name '*.app' -print | head -1 | xargs -I{} basename "{}")
+
+  if [ -z "$APP" ]; then
+    echo "No .app bundle found in $DMG, skipping." >&2
+    hdiutil detach "$MOUNT" -quiet || true
+    rm -rf "$WORK"
+    continue
+  fi
+
+  mkdir -p "$MOUNT/.background"
+  cp "$BACKGROUND" "$MOUNT/.background/background.png"
 
   if [ -f "$MOUNT/.VolumeIcon.icns" ]; then
     rm "$MOUNT/.VolumeIcon.icns"
@@ -114,20 +140,26 @@ for DMG in "${DMGS[@]}"; do
     chflags hidden "$MOUNT/.background" 2>/dev/null || true
   fi
 
-  if should_skip_finder_layout; then
-    echo "Skipping Finder layout (headless/CI environment)."
-  elif [ -n "$APP" ]; then
-    rm -f "$MOUNT/.DS_Store"
-    if apply_finder_layout "$MOUNT" "$VOL" "$APP"; then
-      echo "Applied Finder layout."
-    else
-      echo "Warning: Finder layout failed; keeping existing .DS_Store from bundler." >&2
-    fi
+  if ds_store_has_background "$MOUNT"; then
+    echo "Finder layout already present, skipping AppleScript."
   else
-    echo "No .app bundle found; skipping Finder layout." >&2
+    echo "Applying Finder layout (background + icon positions)..."
+    rm -f "$MOUNT/.DS_Store"
+    if ! apply_finder_layout "$VOL" "$APP"; then
+      echo "Warning: Finder layout AppleScript failed; DMG may lack background image." >&2
+    else
+      sync
+      sleep 1
+      if ds_store_has_background "$MOUNT"; then
+        echo "Finder layout applied."
+      else
+        echo "Warning: .DS_Store still missing background metadata." >&2
+      fi
+    fi
   fi
 
   hdiutil detach "$MOUNT" -quiet
+
   hdiutil convert "$RW" -format UDZO -imagekey zlib-level=9 -o "$WORK/out.dmg" -quiet
   mv "$WORK/out.dmg" "$DMG"
   rm -rf "$WORK"
