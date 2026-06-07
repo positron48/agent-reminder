@@ -12,7 +12,7 @@ A tiny menu bar / tray app that tracks rate-limit countdowns for **Claude**, **C
 
 macOS · Windows · Linux · Free & open source (MIT)
 
-> **macOS:** the app is ad-hoc signed (no Apple Developer account). If macOS says the app is *damaged*, run `xattr -cr "/Applications/Agent Reminder.app"` after copying from the DMG, or right-click the app → **Open** the first time.
+> **macOS (unsigned build):** Apple shows a one-time security prompt on first launch. Either **right-click the app → Open**, or after trying to open once go to **System Settings → Privacy & Security → Open Anyway**. No Apple Developer signing in this release — that is expected for open-source builds.
 
 ---
 
