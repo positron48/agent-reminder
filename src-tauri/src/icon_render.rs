@@ -72,7 +72,7 @@ fn render_fresh(summary: &TraySummary) -> Image<'static> {
         } else {
             summary.available_count.to_string()
         };
-        draw_badge(&mut rgba, &label);
+        draw_count_corner(&mut rgba, &label);
     }
 
     Image::new_owned(rgba, SIZE, SIZE)
@@ -97,8 +97,7 @@ fn render_svg(kind: SvgKind, size: u32) -> Vec<u8> {
     let tx = (size as f32 - svg_size.width() * scale) / 2.0;
     let ty = (size as f32 - svg_size.height() * scale) / 2.0;
 
-    let transform = resvg::tiny_skia::Transform::from_translate(tx, ty)
-        .pre_scale(scale, scale);
+    let transform = resvg::tiny_skia::Transform::from_translate(tx, ty).pre_scale(scale, scale);
 
     resvg::render(&tree, transform, &mut pixmap.as_mut());
     pixmap.data().to_vec()
@@ -127,65 +126,120 @@ fn load_svg_tree(kind: SvgKind) -> Tree {
     tree
 }
 
-fn draw_badge(buf: &mut [u8], text: &str) {
-    let (r, g, b) = badge_color();
-    fill_circle(buf, 30.0, 30.0, 9.0, [r, g, b, 255]);
-    draw_text(buf, text, 30.0, 30.5);
+fn draw_count_corner(buf: &mut [u8], text: &str) {
+    const GLYPH_W: i32 = 6;
+    const GLYPH_H: i32 = 8;
+    const GLYPH_GAP: i32 = 1;
+    const BADGE_LAYOUT_SCALE: i32 = 3;
+    const TEXT_SCALE: i32 = 2;
+    const PAD_X: i32 = 1;
+    const PAD_Y: i32 = 1;
+    const RADIUS: i32 = 5;
+    const EDGE_INSET: i32 = 1;
+
+    let char_count = text.chars().count() as i32;
+    let layout_scale = if char_count >= 3 { 2 } else { BADGE_LAYOUT_SCALE };
+    let text_scale = TEXT_SCALE;
+
+    let badge_inner_w = char_count * GLYPH_W * layout_scale + (char_count - 1).max(0) * GLYPH_GAP * layout_scale;
+    let badge_inner_h = GLYPH_H * layout_scale;
+    let badge_w = badge_inner_w + PAD_X * 2;
+    let badge_h = badge_inner_h + PAD_Y * 2;
+
+    let text_w = char_count * GLYPH_W * text_scale + (char_count - 1).max(0) * GLYPH_GAP * text_scale;
+    let text_h = GLYPH_H * text_scale;
+
+    let badge_x = SIZE as i32 - EDGE_INSET - badge_w;
+    let badge_y = SIZE as i32 - EDGE_INSET - badge_h;
+    let text_x = badge_x + (badge_w - text_w) / 2;
+    let text_y = badge_y + (badge_h - text_h) / 2;
+
+    fill_rounded_rect(buf, badge_x, badge_y, badge_w, badge_h, RADIUS, badge_bg_color());
+    draw_text(buf, text, text_x, text_y, GLYPH_W, GLYPH_GAP, text_scale, badge_text_color());
 }
 
-fn fill_circle(buf: &mut [u8], cx: f32, cy: f32, radius: f32, color: [u8; 4]) {
-    let r2 = radius * radius;
-    for y in 0..SIZE as i32 {
-        for x in 0..SIZE as i32 {
-            let dx = x as f32 + 0.5 - cx;
-            let dy = y as f32 + 0.5 - cy;
-            if dx * dx + dy * dy <= r2 {
-                set_rgba(buf, x, y, color);
+fn badge_bg_color() -> [u8; 4] {
+    [0, 0, 0, 255]
+}
+
+#[cfg(target_os = "macos")]
+fn badge_text_color() -> [u8; 4] {
+    // Template icons are monochrome: punch holes so the menu bar shows through as contrast.
+    [0, 0, 0, 0]
+}
+
+#[cfg(not(target_os = "macos"))]
+fn badge_text_color() -> [u8; 4] {
+    [255, 255, 255, 255]
+}
+
+fn fill_rounded_rect(buf: &mut [u8], x: i32, y: i32, w: i32, h: i32, radius: i32, color: [u8; 4]) {
+    let radius = radius.min(w / 2).min(h / 2);
+    for py in y..y + h {
+        for px in x..x + w {
+            if in_rounded_rect(px, py, x, y, w, h, radius) {
+                set_rgba(buf, px, py, color);
             }
         }
     }
 }
 
-fn draw_text(buf: &mut [u8], text: &str, cx: f32, cy: f32) {
-    const GLYPH_W: i32 = 5;
-    const GLYPH_H: i32 = 7;
-    let char_count = text.chars().count() as i32;
-    let total_w = char_count * GLYPH_W + (char_count - 1).max(0);
-    let start_x = (cx - total_w as f32 / 2.0).round() as i32;
-    let start_y = (cy - GLYPH_H as f32 / 2.0).round() as i32;
+fn in_rounded_rect(px: i32, py: i32, rx: i32, ry: i32, w: i32, h: i32, r: i32) -> bool {
+    if px < rx || py < ry || px >= rx + w || py >= ry + h {
+        return false;
+    }
 
+    if px < rx + r && py < ry + r {
+        let dx = px - (rx + r);
+        let dy = py - (ry + r);
+        return dx * dx + dy * dy <= r * r;
+    }
+    if px >= rx + w - r && py < ry + r {
+        let dx = px - (rx + w - r - 1);
+        let dy = py - (ry + r);
+        return dx * dx + dy * dy <= r * r;
+    }
+    if px < rx + r && py >= ry + h - r {
+        let dx = px - (rx + r);
+        let dy = py - (ry + h - r - 1);
+        return dx * dx + dy * dy <= r * r;
+    }
+    if px >= rx + w - r && py >= ry + h - r {
+        let dx = px - (rx + w - r - 1);
+        let dy = py - (ry + h - r - 1);
+        return dx * dx + dy * dy <= r * r;
+    }
+
+    true
+}
+
+fn draw_text(
+    buf: &mut [u8],
+    text: &str,
+    start_x: i32,
+    start_y: i32,
+    glyph_w: i32,
+    glyph_gap: i32,
+    scale: i32,
+    color: [u8; 4],
+) {
     for (idx, ch) in text.chars().enumerate() {
-        if let Some(glyph) = glyph(ch) {
-            let ox = start_x + idx as i32 * (GLYPH_W + 1);
-            for (row, bits) in glyph.iter().enumerate() {
-                for col in 0..GLYPH_W {
-                    if (bits >> (GLYPH_W - 1 - col)) & 1 == 1 {
-                        draw_glyph_pixel(buf, ox + col, start_y + row as i32);
+        let Some(glyph) = bold_glyph(ch) else {
+            continue;
+        };
+        let ox = start_x + idx as i32 * (glyph_w + glyph_gap) * scale;
+        for (row, bits) in glyph.iter().enumerate() {
+            for col in 0..glyph_w {
+                if (bits >> (glyph_w - 1 - col)) & 1 == 1 {
+                    for dy in 0..scale {
+                        for dx in 0..scale {
+                            set_rgba(buf, ox + col * scale + dx, start_y + row as i32 * scale + dy, color);
+                        }
                     }
                 }
             }
         }
     }
-}
-
-#[cfg(target_os = "macos")]
-fn draw_glyph_pixel(buf: &mut [u8], x: i32, y: i32) {
-    clear_pixel(buf, x, y);
-}
-
-#[cfg(not(target_os = "macos"))]
-fn draw_glyph_pixel(buf: &mut [u8], x: i32, y: i32) {
-    set_rgba(buf, x, y, [255, 255, 255, 255]);
-}
-
-#[cfg(target_os = "macos")]
-fn badge_color() -> (u8, u8, u8) {
-    (0, 0, 0)
-}
-
-#[cfg(not(target_os = "macos"))]
-fn badge_color() -> (u8, u8, u8) {
-    (52, 199, 89)
 }
 
 fn set_rgba(buf: &mut [u8], x: i32, y: i32, color: [u8; 4]) {
@@ -196,23 +250,41 @@ fn set_rgba(buf: &mut [u8], x: i32, y: i32, color: [u8; 4]) {
     buf[idx..idx + 4].copy_from_slice(&color);
 }
 
-fn clear_pixel(buf: &mut [u8], x: i32, y: i32) {
-    set_rgba(buf, x, y, [0, 0, 0, 0]);
-}
-
-fn glyph(ch: char) -> Option<&'static [u8; 7]> {
+fn bold_glyph(ch: char) -> Option<&'static [u8; 8]> {
     Some(match ch {
-        '0' => &[0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110],
-        '1' => &[0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110],
-        '2' => &[0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111],
-        '3' => &[0b01110, 0b10001, 0b00001, 0b00110, 0b00001, 0b10001, 0b01110],
-        '4' => &[0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010],
-        '5' => &[0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110],
-        '6' => &[0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110],
-        '7' => &[0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000],
-        '8' => &[0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110],
-        '9' => &[0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100],
-        '+' => &[0b00100, 0b00100, 0b11111, 0b00100, 0b00100, 0b00000, 0b00000],
+        '0' => &[
+            0b011110, 0b110011, 0b110101, 0b110101, 0b110101, 0b110101, 0b110011, 0b011110,
+        ],
+        '1' => &[
+            0b001100, 0b011100, 0b001100, 0b001100, 0b001100, 0b001100, 0b001100, 0b111100,
+        ],
+        '2' => &[
+            0b011110, 0b110011, 0b000011, 0b000110, 0b001100, 0b011000, 0b110000, 0b111111,
+        ],
+        '3' => &[
+            0b011110, 0b110011, 0b000011, 0b001110, 0b000011, 0b000011, 0b110011, 0b011110,
+        ],
+        '4' => &[
+            0b000110, 0b001110, 0b011110, 0b110110, 0b111111, 0b000110, 0b000110, 0b000110,
+        ],
+        '5' => &[
+            0b111111, 0b110000, 0b111110, 0b000011, 0b000011, 0b000011, 0b110011, 0b011110,
+        ],
+        '6' => &[
+            0b001110, 0b011000, 0b110000, 0b111110, 0b110011, 0b110011, 0b110011, 0b011110,
+        ],
+        '7' => &[
+            0b111111, 0b000011, 0b000110, 0b001100, 0b011000, 0b011000, 0b011000, 0b011000,
+        ],
+        '8' => &[
+            0b011110, 0b110011, 0b110011, 0b011110, 0b110011, 0b110011, 0b110011, 0b011110,
+        ],
+        '9' => &[
+            0b011110, 0b110011, 0b110011, 0b110011, 0b011111, 0b000011, 0b000110, 0b011100,
+        ],
+        '+' => &[
+            0b001100, 0b001100, 0b111111, 0b111111, 0b001100, 0b001100, 0b000000, 0b000000,
+        ],
         _ => return None,
     })
 }

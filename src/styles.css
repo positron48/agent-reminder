@@ -90,17 +90,24 @@ body {
 }
 
 .sound-toggle {
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
+  border: none;
+  background: var(--accent);
+  color: #fff;
   border-radius: 999px;
   width: 34px;
   height: 34px;
   cursor: pointer;
-  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
 }
 
 .sound-toggle.off {
-  opacity: 0.55;
+  background: rgba(120, 120, 128, 0.45);
+  color: #fff;
+  opacity: 1;
 }
 
 .hero {

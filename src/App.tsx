@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BellIcon } from "./components/BellIcon";
 import { AddTimerForm } from "./components/AddTimerForm";
 import { QuickAddButtons } from "./components/QuickAddButtons";
 import { NextAvailable, TimerList } from "./components/TimerList";
@@ -54,7 +55,7 @@ function App() {
           onClick={() => toggleSound()}
           title={settings.soundEnabled ? "Sound on" : "Sound off"}
         >
-          {settings.soundEnabled ? "🔔" : "🔕"}
+          <BellIcon muted={!settings.soundEnabled} />
         </button>
       </div>
 
