@@ -16,15 +16,19 @@ jobs:
           - platform: macos-latest
             args: --target aarch64-apple-darwin
             rust_targets: aarch64-apple-darwin
+            tauri_script: bash scripts/tauri-build-mac.sh
           - platform: macos-latest
             args: --target x86_64-apple-darwin
             rust_targets: x86_64-apple-darwin
+            tauri_script: bash scripts/tauri-build-mac.sh
           - platform: ubuntu-22.04
             args: ""
             rust_targets: ""
+            tauri_script: ""
           - platform: windows-latest
             args: ""
             rust_targets: ""
+            tauri_script: ""
 
     runs-on: ${{ matrix.platform }}
 
@@ -78,3 +82,4 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+          tauriScript: ${{ matrix.tauri_script || 'npm run tauri' }}
