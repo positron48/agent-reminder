@@ -93,7 +93,7 @@ Right-click the tray icon (or use the menu) to quit.
 
 ## Releases
 
-Push a version tag to trigger GitHub Actions:
+Push a version tag — GitHub Actions builds and **publishes** a release automatically:
 
 ```bash
 git tag v0.1.0
