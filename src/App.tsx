@@ -4,7 +4,7 @@ import { AddTimerForm } from "./components/AddTimerForm";
 import { QuickAddButtons } from "./components/QuickAddButtons";
 import { NextAvailable, TimerList } from "./components/TimerList";
 import { useTimers } from "./state/useTimers";
-import type { AgentType } from "./types";
+import type { AddTimerPayload, AgentType, RestartTimerPayload, Timer } from "./types";
 import "./styles.css";
 
 function App() {
@@ -19,16 +19,45 @@ function App() {
     addTimer,
     removeTimer,
     completeTimer,
+    restartTimer,
     clearCompleted,
     toggleSound,
   } = useTimers();
 
   const [showForm, setShowForm] = useState(false);
+  const [formMode, setFormMode] = useState<"add" | "restart">("add");
   const [formPreset, setFormPreset] = useState<AgentType | null>(null);
+  const [restartTarget, setRestartTarget] = useState<Timer | null>(null);
+
+  const closeForm = () => {
+    setShowForm(false);
+    setFormMode("add");
+    setFormPreset(null);
+    setRestartTarget(null);
+  };
 
   const openForm = (preset?: AgentType) => {
+    setFormMode("add");
     setFormPreset(preset ?? null);
+    setRestartTarget(null);
     setShowForm(true);
+  };
+
+  const openRestartForm = (timer: Timer) => {
+    setFormMode("restart");
+    setFormPreset(null);
+    setRestartTarget(timer);
+    setShowForm(true);
+  };
+
+  const handleFormSubmit = async (
+    payload: AddTimerPayload | RestartTimerPayload,
+  ) => {
+    if ("id" in payload) {
+      await restartTimer(payload);
+      return;
+    }
+    await addTimer(payload);
   };
 
   if (loading) {
@@ -78,12 +107,11 @@ function App() {
         </>
       ) : (
         <AddTimerForm
+          mode={formMode}
           preset={formPreset}
-          onSubmit={addTimer}
-          onCancel={() => {
-            setShowForm(false);
-            setFormPreset(null);
-          }}
+          restartTimer={restartTarget}
+          onSubmit={handleFormSubmit}
+          onCancel={closeForm}
         />
       )}
 
@@ -92,6 +120,7 @@ function App() {
         completedTimers={completedTimers}
         now={now}
         onComplete={completeTimer}
+        onRestart={openRestartForm}
         onRemove={removeTimer}
         onClearCompleted={clearCompleted}
       />

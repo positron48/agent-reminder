@@ -4,8 +4,8 @@ use uuid::Uuid;
 
 use crate::{
     models::{
-        AddTimerPayload, AgentType, AppSettings, Timer, TimerStatus, TraySummary,
-        compute_tray_summary,
+        AddTimerPayload, AgentType, AppSettings, RestartTimerPayload, Timer, TimerStatus,
+        TraySummary, compute_tray_summary,
     },
     store::{save_settings, save_timers, AppState},
     timer_engine::refresh_tray,
@@ -13,6 +13,33 @@ use crate::{
 
 fn now_ms() -> i64 {
     Utc::now().timestamp_millis()
+}
+
+fn resolve_timer_schedule(
+    days: u32,
+    hours: u32,
+    minutes: u32,
+    ends_at: Option<i64>,
+) -> Result<(u64, i64, i64), String> {
+    let started = now_ms();
+    if let Some(end) = ends_at {
+        if end <= started {
+            return Err("Reset time must be in the future".into());
+        }
+        let duration_ms = (end - started) as u64;
+        if duration_ms == 0 {
+            return Err("Duration must be greater than 0".into());
+        }
+        Ok((duration_ms, started, end))
+    } else if days == 0 && hours == 0 && minutes == 0 {
+        Err("Duration must be greater than 0".into())
+    } else {
+        let duration_ms = ((days as u64 * 24 * 60 * 60)
+            + (hours as u64 * 60 * 60)
+            + (minutes as u64 * 60))
+            * 1000;
+        Ok((duration_ms, started, started + duration_ms as i64))
+    }
 }
 
 #[tauri::command]
@@ -51,28 +78,25 @@ pub fn add_timer(
     state: State<'_, AppState>,
     payload: AddTimerPayload,
 ) -> Result<Timer, String> {
-    if payload.days == 0 && payload.hours == 0 && payload.minutes == 0 {
-        return Err("Duration must be greater than 0".into());
-    }
-
     let agent_type = AgentType::from_str(&payload.agent_type);
     let agent_label = payload
         .agent_label
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| agent_type.default_label().to_string());
 
-    let duration_ms = ((payload.days as u64 * 24 * 60 * 60)
-        + (payload.hours as u64 * 60 * 60)
-        + (payload.minutes as u64 * 60))
-        * 1000;
-    let started = now_ms();
+    let (duration_ms, started_at, ends_at) = resolve_timer_schedule(
+        payload.days,
+        payload.hours,
+        payload.minutes,
+        payload.ends_at,
+    )?;
     let timer = Timer {
         id: Uuid::new_v4().to_string(),
         agent_type,
         agent_label,
         duration_ms,
-        started_at: started,
-        ends_at: started + duration_ms as i64,
+        started_at,
+        ends_at,
         comment: payload.comment.filter(|s| !s.trim().is_empty()),
         status: TimerStatus::Active,
         notified: false,
@@ -117,19 +141,33 @@ pub fn complete_timer(app: AppHandle, state: State<'_, AppState>, id: String) ->
 }
 
 #[tauri::command]
-pub fn restart_timer(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<Timer, String> {
+pub fn restart_timer(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    payload: RestartTimerPayload,
+) -> Result<Timer, String> {
+    let (duration_ms, started_at, ends_at) = resolve_timer_schedule(
+        payload.days,
+        payload.hours,
+        payload.minutes,
+        payload.ends_at,
+    )?;
+
     let updated = {
         let mut timers = state.timers.lock().unwrap();
         let timer = timers
             .iter_mut()
-            .find(|t| t.id == id)
+            .find(|t| t.id == payload.id)
             .ok_or_else(|| "Timer not found".to_string())?;
 
-        let started = now_ms();
-        timer.started_at = started;
-        timer.ends_at = started + timer.duration_ms as i64;
+        timer.duration_ms = duration_ms;
+        timer.started_at = started_at;
+        timer.ends_at = ends_at;
         timer.status = TimerStatus::Active;
         timer.notified = false;
+        if let Some(comment) = payload.comment.filter(|s| !s.trim().is_empty()) {
+            timer.comment = Some(comment);
+        }
         timer.clone()
     };
 

@@ -57,8 +57,25 @@ pub struct AddTimerPayload {
     pub agent_label: Option<String>,
     #[serde(default)]
     pub days: u32,
+    #[serde(default)]
     pub hours: u32,
+    #[serde(default)]
     pub minutes: u32,
+    pub ends_at: Option<i64>,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestartTimerPayload {
+    pub id: String,
+    #[serde(default)]
+    pub days: u32,
+    #[serde(default)]
+    pub hours: u32,
+    #[serde(default)]
+    pub minutes: u32,
+    pub ends_at: Option<i64>,
     pub comment: Option<String>,
 }
 

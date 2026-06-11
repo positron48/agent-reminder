@@ -28,12 +28,23 @@ export interface AppSettings {
   soundEnabled: boolean;
 }
 
-export interface AddTimerPayload {
+export type TimerScheduleMode = "duration" | "target";
+
+export interface TimerSchedulePayload {
+  days?: number;
+  hours?: number;
+  minutes?: number;
+  endsAt?: number;
+}
+
+export interface AddTimerPayload extends TimerSchedulePayload {
   agentType: string;
   agentLabel?: string;
-  days: number;
-  hours: number;
-  minutes: number;
+  comment?: string;
+}
+
+export interface RestartTimerPayload extends TimerSchedulePayload {
+  id: string;
   comment?: string;
 }
 
@@ -57,6 +68,28 @@ export function formatCountdown(ms: number): string {
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+export function durationMsToParts(ms: number): {
+  days: number;
+  hours: number;
+  minutes: number;
+} {
+  const totalMinutes = Math.floor(ms / 60_000);
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
+  return { days, hours, minutes };
+}
+
+export function defaultTargetDatetimeLocal(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 7);
+  date.setSeconds(0, 0);
+  date.setMinutes(0);
+  date.setHours(date.getHours() + 1);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 export function agentBadgeClass(agentType: AgentType): string {

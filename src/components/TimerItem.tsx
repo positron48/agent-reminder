@@ -5,6 +5,7 @@ interface Props {
   timer: Timer;
   now: number;
   onComplete: (id: string) => void;
+  onRestart?: (timer: Timer) => void;
   onRemove: (id: string) => void;
 }
 
@@ -12,6 +13,7 @@ export function TimerItem({
   timer,
   now,
   onComplete,
+  onRestart,
   onRemove,
 }: Props) {
   const remaining =
@@ -32,6 +34,16 @@ export function TimerItem({
         {timer.comment && <p className="timer-comment">{timer.comment}</p>}
       </div>
       <div className="timer-actions">
+        {isCompleted && onRestart && (
+          <button
+            type="button"
+            className="icon-btn restart"
+            title="Restart timer"
+            onClick={() => onRestart(timer)}
+          >
+            ↻
+          </button>
+        )}
         {!isCompleted && (
           <button
             type="button"

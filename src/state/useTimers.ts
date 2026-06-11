@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AddTimerPayload,
   AppSettings,
+  RestartTimerPayload,
   Timer,
   TraySummary,
 } from "../types";
@@ -78,6 +79,11 @@ export function useTimers() {
     await refresh();
   };
 
+  const restartTimer = async (payload: RestartTimerPayload) => {
+    await invoke("restart_timer", { payload });
+    await refresh();
+  };
+
   const clearCompleted = async () => {
     await invoke("clear_completed");
     await refresh();
@@ -102,6 +108,7 @@ export function useTimers() {
     addTimer,
     removeTimer,
     completeTimer,
+    restartTimer,
     clearCompleted,
     toggleSound,
     refresh,

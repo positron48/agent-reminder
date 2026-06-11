@@ -7,6 +7,7 @@ interface Props {
   completedTimers: Timer[];
   now: number;
   onComplete: (id: string) => void;
+  onRestart: (timer: Timer) => void;
   onRemove: (id: string) => void;
   onClearCompleted: () => void;
 }
@@ -16,6 +17,7 @@ export function TimerList({
   completedTimers,
   now,
   onComplete,
+  onRestart,
   onRemove,
   onClearCompleted,
 }: Props) {
@@ -63,6 +65,7 @@ export function TimerList({
               timer={timer}
               now={now}
               onComplete={onComplete}
+              onRestart={onRestart}
               onRemove={onRemove}
             />
           ))}
